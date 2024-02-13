@@ -1,10 +1,13 @@
 #include <EEPROM.h>
+#include <U8g2lib.h>
 
-#define nameLength 20
+#define nameLength 10
 #define maxProfile 32
 #define maxLayer 8
 #define maxPad 8
-#define maxPadNote 43
+#define maxPadNote 43 //35+maxPad;
+
+#define rewriteMemory 0 //set it to 1 if you want to rewrite all profiles in EEPROM to default on startup; 
 
 
 struct Layer
@@ -31,9 +34,41 @@ struct PadLayer
 
 struct Profile
 {
-  char name[nameLength] = "Empty Profile";
+  char name[2][nameLength] = {"Empty", "Profile"};
   Layer layers[maxLayer];
   PadLayer padLayer;
+};
+
+class Button
+{
+  private: 
+    uint8_t pin;
+    uint8_t prevstate;
+  public:
+    Button(uint8_t pin)
+    {
+      this->pin = pin;
+      pinMode(pin, INPUT);
+      prevstate = digitalRead(this->pin);
+    }
+
+    uint8_t Pressed()
+    {
+      if (digitalRead(pin) == LOW)
+      {
+        if (prevstate == HIGH)
+          prevstate = LOW;
+      }
+      else // current state == HIGH;
+      {
+        if (prevstate == LOW)
+        {
+          prevstate = HIGH;
+          return 1;
+        }
+      }
+      return 0;
+    } 
 };
 
 uint8_t currentProfileNumber;
@@ -41,8 +76,61 @@ Profile currentProfile;
 
 uint8_t screenNum;
 uint8_t tabNum;
-uint8_t linwNum;
+uint8_t lineNum;
 
+Button buttonUp = Button(31);
+Button buttonDown = Button(25);
+Button buttonLeft = Button(33);
+Button buttonRight = Button(27);
+Button buttonCenter = Button(29);
+Button buttonBack = Button(23);
+
+U8G2_SH1106_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+
+/* Buttons:
+  U
+L C R
+  D    B
+*/
+void handleButton(char btn)
+{
+  //home screen;
+  if (screenNum == 0)
+  {
+    if (btn == 'U' || btn == 'R')
+    {
+      currentProfileNumber++;
+      if (currentProfileNumber > maxProfile)
+        currentProfileNumber -= maxProfile;
+      currentProfile = EEPROM.get(2 + (currentProfileNumber - 1) * sizeof(Profile), currentProfile);
+    }
+    if (btn == 'D' || btn == 'L')
+    {
+      currentProfileNumber--;
+      if (currentProfileNumber <= 0)
+        currentProfileNumber += maxProfile;
+      currentProfile = EEPROM.get(2 + (currentProfileNumber - 1) * sizeof(Profile), currentProfile);
+    }
+    if (btn == 'C')
+    {
+      screenNum = 1;
+      tabNum = 0;
+      lineNum = 0;
+    }
+  }
+
+
+  redrawDisplay();
+}
+
+void redrawDisplay()
+{
+  //home screen;
+  if (screenNum == 0)
+  {
+
+  }
+}
 void setup() {
   const HardwareSerial * serials[4] = {&Serial, &Serial1, &Serial2, &Serial3};
   for (uint8_t serialNum = 0; serialNum < 4; serialNum++)
@@ -50,7 +138,7 @@ void setup() {
     serials[serialNum]->begin(31250);
   }
 
-  if (EEPROM.read(0))
+  if (EEPROM.read(0) || rewriteMemory)
   {
     currentProfileNumber = 1;
     EEPROM.write(1, currentProfileNumber);
@@ -60,25 +148,29 @@ void setup() {
       EEPROM.put(2 + (i-1) * sizeof(Profile), currentProfile);
     }
 
-    strcpy(currentProfile.name, "Default Through");
+    strcpy(currentProfile.name[0], "Default");
+    strcpy(currentProfile.name[1], "Through");
     currentProfile.layers[0].isActive = 1;
     EEPROM.put(2, currentProfile);
 
     EEPROM.write(0, 0);
 
-    Serial.println("BF");
+    Serial.println("Rewriting the profiles to EEPROM");
   } 
   else
   {
       currentProfileNumber = EEPROM.read(1);
       currentProfile = EEPROM.get(2 + (currentProfileNumber - 1) * sizeof(Profile), currentProfile);
 
-      Serial.println("LF");
+      Serial.println("Profiles loaded");
   }
 
   screenNum = 0;
   tabNum = 0;
   lineNum = 0;
+
+  redrawDisplay();
+
 }
 
 void loop() {
@@ -129,7 +221,7 @@ void loop() {
       {
         if ((code == 0b10000000 || code == 0b10010000) && 36 <= bytes[1] && bytes[1] <= maxPadNote)
         {
-          uint8_t padNum = bytes[i] - 36;
+          uint8_t padNum = bytes[1] - 36;
           if (currentProfile.padLayer.specificNotes[padNum][0] > 0)
           {
             uint8_t newcommand = bytes[0];
