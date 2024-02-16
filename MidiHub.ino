@@ -130,6 +130,7 @@ Profile currentProfile;
 uint8_t screenNum;
 uint8_t tabNum;
 uint8_t lineNum;
+uint8_t lineTotal;
 
 uint8_t profileChanged;
 
@@ -202,6 +203,22 @@ void drawFrame()
   display.drawPixel(122, 43, 1);
   display.drawLine(1, 44, 123, 44, WHITE);
   display.drawLine(2, 45, 122, 45, WHITE);
+}
+
+void drawScrollbar()
+{
+  for (uint8_t y = 9; y < 64; y+=2)
+  {
+    display.drawPixel(126, y, 1);
+  }
+
+  uint8_t len = 55 / lineTotal + (lineNum < 55 % lineTotal ? 1 : 0);
+  uint8_t pos = 9 + lineNum * (55 / lineTotal) + (lineNum < 55 % lineTotal ? lineNum : 55 % lineTotal);
+
+  Serial.println(pos);
+  Serial.println(len);
+
+  display.drawRect(125, pos, 3, len, 1);
 }
 
 void handleButton(char btn)
@@ -303,8 +320,35 @@ void setup() {
   screenNum = 0;
   tabNum = 0;
   lineNum = 0;
+  lineTotal = 1;
 
   redrawDisplay();
+
+  delay(3000);
+
+  display.clearDisplay();
+  drawFrame();
+  lineTotal = 1;
+  lineNum = 0;
+  drawScrollbar();
+  display.display();
+  delay(3000);
+
+  display.clearDisplay();
+  drawFrame();
+  lineTotal = 5;
+  lineNum = 1;
+  drawScrollbar();
+  display.display();
+  delay(3000);
+
+  display.clearDisplay();
+  drawFrame();
+  lineTotal = 16;
+  lineNum = 15;
+  drawScrollbar();
+  display.display();
+  delay(3000);
 
 
 }
