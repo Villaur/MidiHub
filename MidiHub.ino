@@ -12,6 +12,8 @@
 #define rewriteMemory 0 //set it to 1 if you want to force the program to rewrite all profiles in EEPROM to default on startup;
 #define softwareVersion 0.4 //increase the integer part each time the Profile structure changes;
 
+#define MYDELAY 3000
+
 Adafruit_SH1106 display(-1);
 
 // 'PENUP_20240215_212607', 88x64px
@@ -130,7 +132,8 @@ Profile currentProfile;
 uint8_t screenNum;
 uint8_t tabNum;
 uint8_t lineNum;
-uint8_t lineTotal;
+uint8_t lineMax;
+uint8_t tabMax;
 
 uint8_t profileChanged;
 
@@ -152,12 +155,14 @@ void loadProfile(uint8_t profileNum)
 {
   currentProfileNumber = profileNum;
   currentProfile = EEPROM.get(2 + (currentProfileNumber - 1) * sizeof(Profile), currentProfile);
+  Serial.println("Profile Loaded: "); Serial.println(profileNum);
   profileChanged = 0;
 }
 
 void saveProfile(uint8_t profileNum)
 {
   EEPROM.put(2 + (profileNum-1) * sizeof(Profile), currentProfile);
+  Serial.print("Profile Saved: "); Serial.println(profileNum);
   profileChanged = 0;
 }
 
@@ -197,28 +202,152 @@ void drawFrame()
   display.drawLine(2, 27, 121, 27, WHITE);
   display.drawPixel(1, 28, 1);
   display.drawPixel(122, 28, 1);
-  display.drawLine(0, 29, 0, 43, WHITE);
-  display.drawLine(123, 29, 123, 43, WHITE);
-  display.drawPixel(1, 43, 1);
-  display.drawPixel(122, 43, 1);
-  display.drawLine(1, 44, 123, 44, WHITE);
-  display.drawLine(2, 45, 122, 45, WHITE);
+  display.drawLine(0, 29, 0, 44, WHITE);
+  display.drawLine(123, 29, 123, 44, WHITE);
+  display.drawPixel(1, 45, 1);
+  display.drawPixel(122, 45, 1);
+  //display.drawLine(1, 44, 123, 44, WHITE);
+  display.drawLine(2, 46, 122, 46, WHITE);
+}
+
+void drawHeader()
+{
+  display.setTextSize(1);
+  display.setCursor(1,1);
+
+  if (profileChanged)
+  {
+    display.setTextColor(BLACK, WHITE);
+    if(currentProfileNumber < 10) {display.print(" ");}
+    display.print(currentProfileNumber); display.print("*");
+  }
+  else
+  {
+    display.setTextColor(WHITE);
+    if(currentProfileNumber < 10) {display.print(" ");}
+    display.print(currentProfileNumber); display.print(" ");
+  }
+
+  display.setTextColor(WHITE);
+  display.print(currentProfile.nameline1);
+
+  display.print(" ");
+
+  char trimmedname[11];
+  uint8_t pointer = 0;
+  for(pointer = 0; pointer < 17 - strlen(currentProfile.nameline1) && pointer < strlen(currentProfile.nameline2); pointer++)
+    trimmedname[pointer] = currentProfile.nameline2[pointer];
+  if (pointer < 11)
+    trimmedname[pointer] = '\0';
+  else
+    trimmedname[10] = '\0';
+  
+  display.print(trimmedname);
 }
 
 void drawScrollbar()
 {
-  for (uint8_t y = 9; y < 64; y+=2)
+  for (uint8_t y = 11; y < 64; y+=2)
   {
     display.drawPixel(126, y, 1);
   }
 
-  uint8_t len = 55 / lineTotal + (lineNum < 55 % lineTotal ? 1 : 0);
-  uint8_t pos = 9 + lineNum * (55 / lineTotal) + (lineNum < 55 % lineTotal ? lineNum : 55 % lineTotal);
-
-  Serial.println(pos);
-  Serial.println(len);
+  uint8_t len = 53 / lineMax + (lineNum < 53 % lineMax ? 1 : 0);
+  uint8_t pos = 11 + lineNum * (53 / lineMax) + (lineNum < 53 % lineMax ? lineNum : 53 % lineMax);
 
   display.drawRect(125, pos, 3, len, 1);
+}
+
+void drawTabs(const char * t0, const char * t1, const char * t2, const char * t3)
+{
+  display.setTextSize(1);
+  //tab 0;
+  if (tabNum != 0)
+  {
+    display.drawLine(2, 0, 31, 0, 1);
+    display.drawLine(1, 0, 1, 8, 1);
+  
+    display.setCursor(2,1);
+    display.setTextColor(BLACK, WHITE);
+  }
+  else
+  {
+    display.setCursor(2,1);
+    display.setTextColor(WHITE);
+  }
+  for (uint8_t i = 0; i < (5 - strlen(t0)) / 2; i++)
+    display.print(" ");
+
+  display.print(t0);
+
+  for (uint8_t i = 0; i < (6 - strlen(t0)) / 2; i++)
+    display.print(" ");
+
+  //tab 1;
+  if (tabNum != 1)
+  {
+    display.drawLine(34, 0, 63, 0, 1);
+    display.drawLine(33, 0, 33, 8, 1);
+  
+    display.setCursor(34,1);
+    display.setTextColor(BLACK, WHITE);
+  }
+  else
+  {
+    display.setCursor(34,1);
+    display.setTextColor(WHITE);
+  }
+  for (uint8_t i = 0; i < (5 - strlen(t1)) / 2; i++)
+    display.print(" ");
+
+  display.print(t1);
+
+  for (uint8_t i = 0; i < (6 - strlen(t1)) / 2; i++)
+    display.print(" ");
+
+  //tab 2;
+  if (tabNum != 2)
+  {
+    display.drawLine(66, 0, 95, 0, 1);
+    display.drawLine(65, 0, 65, 8, 1);
+  
+    display.setCursor(66,1);
+    display.setTextColor(BLACK, WHITE);
+  }
+  else
+  {
+    display.setCursor(66,1);
+    display.setTextColor(WHITE);
+  }
+  for (uint8_t i = 0; i < (5 - strlen(t2)) / 2; i++)
+    display.print(" ");
+
+  display.print(t2);
+
+  for (uint8_t i = 0; i < (6 - strlen(t2)) / 2; i++)
+    display.print(" ");
+
+  //tab 3;
+  if (tabNum != 3)
+  {
+    display.drawLine(98, 0, 127, 0, 1);
+    display.drawLine(97, 0, 97, 8, 1);
+  
+    display.setCursor(98,1);
+    display.setTextColor(BLACK, WHITE);
+  }
+  else
+  {
+    display.setCursor(98,1);
+    display.setTextColor(WHITE);
+  }
+  for (uint8_t i = 0; i < (5 - strlen(t3)) / 2; i++)
+    display.print(" ");
+
+  display.print(t3);
+
+  for (uint8_t i = 0; i < (6 - strlen(t3)) / 2; i++)
+    display.print(" ");
 }
 
 void handleButton(char btn)
@@ -233,21 +362,317 @@ void handleButton(char btn)
       else
         loadProfile(currentProfileNumber + 1);
     }
-    if (btn == 'D' || btn == 'L')
+    else if (btn == 'D' || btn == 'L')
     {
       if (currentProfileNumber <= 1)
         loadProfile(currentProfileNumber - 1 + maxProfile);
       else
         loadProfile(currentProfileNumber - 1);
     }
-    if (btn == 'C')
+    else if (btn == 'C')
     {
       screenNum = 1;
       tabNum = 0;
       lineNum = 0;
+      lineMax = 5;
+      tabMax = 1;
+    }
+  } //Menu;
+  else if (screenNum == 1)
+  {
+    if (btn == 'U')
+    {
+      if (lineNum <= 0)
+        lineNum = lineMax - 1;
+      else
+        lineNum--;
+    }
+    else if (btn == 'D')
+    {
+      if (lineNum >= lineMax - 1)
+        lineNum = 0;
+      else
+        lineNum++;
+    }
+    else if (btn == 'B')
+    {
+      screenNum = 0;
+      tabNum = 0;
+      lineNum = 0;
+      lineMax = 1;
+      tabMax = 1;
+    }
+    else if (btn == 'C')
+    {
+      if (lineNum == 0) //Select
+      {
+        screenNum = 2;
+        tabNum = 0;
+        lineNum = 0;
+        lineMax = 8;
+        tabMax = 4;
+      }
+      else if (lineNum == 1) //Edit
+      {
+        screenNum = 4;
+        tabNum = 0;
+        lineNum = 0;
+        lineMax = 16;
+        tabMax = 4;
+      }
+      else if (lineNum == 2) //Save
+      {
+        if (profileChanged)
+          saveProfile(currentProfileNumber);
+
+        screenNum = 0;
+        tabNum = 0;
+        lineNum = 0;
+        lineMax = 1;
+        tabMax = 1;
+      }
+      else if (lineNum == 3) //Save as
+      {
+        screenNum = 3;
+        tabNum = 0;
+        lineNum = 0;
+        lineMax = 8;
+        tabMax = 4;
+      }
+      else if (lineNum == 4) //Options
+      {
+        screenNum = 5;
+        tabNum = 0;
+        lineNum = 0;
+        lineMax = 2;
+        tabMax = 1;
+      }
+    }
+  } //Select;
+  else if (screenNum == 2)
+  {
+    if (btn == 'U')
+    {
+      if (lineNum <= 0)
+        lineNum = lineMax - 1;
+      else
+        lineNum--;
+    }
+    else if (btn == 'D')
+    {
+      if (lineNum >= lineMax - 1)
+        lineNum = 0;
+      else
+        lineNum++;
+    }
+    else if (btn == 'L')
+    {
+      if (tabNum > 0)
+        tabNum--;
+    }
+    else if (btn == 'R')
+    {
+      if (tabNum < tabMax - 1)
+        tabNum++;
+    }
+    else if (btn == 'B')
+    {
+      screenNum = 1;
+      tabNum = 0;
+      lineNum = 0;
+      lineMax = 5;
+      tabMax = 1;
+    }
+    else if (btn == 'C')
+    {
+      loadProfile(lineMax * tabNum + lineNum + 1);
+
+      screenNum = 0;
+      tabNum = 0;
+      lineNum = 0;
+      lineMax = 1;
+      tabMax = 1;
+    }
+  }  //Save as;
+  else if (screenNum == 3)
+  {
+    if (btn == 'U')
+    {
+      if (lineNum <= 0)
+        lineNum = lineMax - 1;
+      else
+        lineNum--;
+    }
+    else if (btn == 'D')
+    {
+      if (lineNum >= lineMax - 1)
+        lineNum = 0;
+      else
+        lineNum++;
+    }
+    else if (btn == 'L')
+    {
+      if (tabNum > 0)
+        tabNum--;
+    }
+    else if (btn == 'R')
+    {
+      if (tabNum < tabMax - 1)
+        tabNum++;
+    }
+    else if (btn == 'B')
+    {
+      screenNum = 1;
+      tabNum = 0;
+      lineNum = 0;
+      lineMax = 5;
+      tabMax = 1;
+    }
+    else if (btn == 'C')
+    {
+      screenNum = 31;
+      tabNum = 1;
+      lineNum = lineMax * tabNum + lineNum + 1;
+      lineMax = 1;
+      tabMax = 1;
+    }
+  } //Save as Confirmation;
+  else if (screenNum == 31)
+  {
+    if (btn == 'L')
+    {
+      tabNum = 0;
+    }
+    else if (btn == 'R')
+    {
+      tabNum = 1;
+    }
+    else if (btn == 'B' || (btn == 'C' && tabNum == 1))
+    {
+      screenNum = 3;
+      tabNum = 0;
+      lineNum = 0;
+      lineMax = 8;
+      tabMax = 4;
+    }
+    else if (btn == 'C' && tabNum == 0)
+    {
+      saveProfile(lineNum);
+      loadProfile(lineNum);
+
+      screenNum = 0;
+      tabNum = 0;
+      lineNum = 0;
+      lineMax = 1;
+      tabMax = 1;
     }
   }
+  else if (screenNum == 5)//Options
+  {
+    if (btn == 'U')
+    {
+      if (lineNum <= 0)
+        lineNum = lineMax;
+      else
+        lineNum--;
+    }
+    else if (btn == 'D')
+    {
+      if (lineNum >= lineMax - 1)
+        lineNum = 0;
+      else
+        lineNum++;
+    }
+    else if (btn == 'L')
+    {
+      if (tabNum > 0)
+        tabNum--;
+    }
+    else if (btn == 'R')
+    {
+      if (tabNum < tabMax - 1)
+        tabNum++;
+    }
+    else if (btn == 'B')
+    {
+      screenNum = 1;
+      tabNum = 0;
+      lineNum = 0;
+      lineMax = 5;
+      tabMax = 1;
+    }
+    else if (btn == 'C' && lineNum == 1) // Panic;
+    {
+      const HardwareSerial * serials[4] = {&Serial, &Serial1, &Serial2, &Serial3};
+      for (uint8_t ser = 0; ser < 4; ser++)
+      {
+        for(uint8_t ch = 0; ch < 16; ch++)
+        {
+          while(serials[ser]->available())
+            serials[ser]->read();
 
+          serials[ser]->write(0xB0 + ch);
+          serials[ser]->write(123);
+          serials[ser]->write(0);
+          serials[ser]->write(0xB0 + ch);
+          serials[ser]->write(120);
+          serials[ser]->write(0);
+        }
+      }
+    }
+    else if (btn == 'C' && lineNum == 0) // Starting preset;
+    {
+      screenNum = 51;
+      tabNum = (EEPROM.read(1) - 1) / 8;
+      lineNum = (EEPROM.read(1) - 1) % 8;
+      lineMax = 8;
+      tabMax = 4;
+    }
+  } //Starting preset;
+  else if (screenNum == 51)
+  {
+    if (btn == 'U')
+    {
+      if (lineNum <= 0)
+        lineNum = lineMax - 1;
+      else
+        lineNum--;
+    }
+    else if (btn == 'D')
+    {
+      if (lineNum >= lineMax - 1)
+        lineNum = 0;
+      else
+        lineNum++;
+    }
+    else if (btn == 'L')
+    {
+      if (tabNum > 0)
+        tabNum--;
+    }
+    else if (btn == 'R')
+    {
+      if (tabNum < tabMax - 1)
+        tabNum++;
+    }
+    else if (btn == 'B')
+    {
+      screenNum = 5;
+      tabNum = 0;
+      lineNum = 0;
+      lineMax = 2;
+      tabMax = 1;
+    }
+    else if (btn == 'C')
+    {
+      setDefaultProfile(lineMax * tabNum + lineNum + 1);
+      screenNum = 5;
+      tabNum = 0;
+      lineNum = 0;
+      lineMax = 2;
+      tabMax = 1;
+    }
+  }
 
   redrawDisplay();
 }
@@ -260,6 +685,178 @@ void redrawDisplay()
   if (screenNum == 0)
   {   
     drawMainScreen();
+  } //Menu;
+  else if (screenNum == 1)
+  {
+    char items[5][11] = {"Select", "Edit", "Save", "Save as", "Options"};
+
+    display.setTextColor(WHITE);
+    display.setTextSize(2);
+
+    display.setCursor(3,11);
+    if (lineNum > 0)
+    {
+      display.print(items[lineNum - 1]);
+    }
+
+    display.setCursor(3,29);
+    display.print(items[lineNum]);
+
+    display.setCursor(3,48);
+    if (lineNum < lineMax - 1)
+    {
+      display.print(items[lineNum + 1]);
+    }
+
+    drawHeader();
+    drawFrame();
+    drawScrollbar();
+  } //Select, Save as, Default Prest;
+  else if (screenNum == 2 || screenNum == 51 || screenNum == 3)
+  {
+    uint8_t names[3];
+    names[1] = tabNum * lineMax + lineNum + 1;
+    names[0] = names[1] - 1;
+    names[2] = names[1] + 1;
+
+    for(uint8_t i = 0; i < 3; i++)
+    {
+      if (names[i] > tabNum * lineMax && names[i] <= (tabNum + 1) * lineMax)
+      {
+        Profile pr;
+        EEPROM.get(2 + (names[i] - 1) * sizeof(Profile), pr);
+
+        uint8_t y;
+        if (i == 0)
+          y = 11;
+        else if (i == 1)
+          y = 29;
+        else
+          y = 48;
+
+        display.setTextSize(2);
+
+        display.setCursor(3, y);
+
+        if (names[i] == currentProfileNumber && profileChanged)
+        {
+          display.setTextColor(BLACK, WHITE);
+          if (names[i] < 10) {display.print(" ");}
+          display.print(names[i]); display.print("*");
+        }
+        else
+        {
+          display.setTextColor(WHITE);
+          if (names[i] < 10) {display.print(" ");}
+          display.print(names[i]); display.print(".");
+        }
+
+        display.setTextColor(WHITE);
+        display.setTextSize(1);
+        display.println(pr.nameline1);
+        display.setCursor(39, y + 8);
+        display.println(pr.nameline2);
+      }
+    }
+
+    drawTabs("1-8","9-16","17-24","25-32");
+    drawScrollbar();
+    drawFrame();
+  }  //Save as Confirmation;
+  else if (screenNum == 31)
+  {
+    display.setTextSize(1);
+    display.setTextColor(WHITE);
+    display.setCursor(1, 0);
+    display.print("Save: ");
+
+    if (profileChanged)
+    {
+      display.setTextColor(BLACK, WHITE);
+      if (currentProfileNumber < 10) {display.print(" ");}
+      display.print(currentProfileNumber); display.print("* ");
+    }
+    else
+    {
+      display.setTextColor(WHITE);
+      if (currentProfileNumber < 10) {display.print(" ");}
+      display.print(currentProfileNumber); display.print(". ");
+    }
+    display.setTextColor(WHITE);
+    display.println(currentProfile.nameline1);
+
+    display.setCursor(61, 8);
+    display.println(currentProfile.nameline2);
+
+    display.setCursor(1, 22);
+    display.print("into: ");
+
+    Profile pr;
+    EEPROM.get(2 + (lineNum - 1) * sizeof(Profile), pr);
+
+    if (lineNum < 10) {display.print(" ");}
+    display.print(lineNum); display.print(". ");
+    display.println(pr.nameline1);
+
+    display.setCursor(61, 30);
+    display.println(pr.nameline2);
+
+    display.setCursor(23, 48);
+    display.print("Yes");
+
+    display.setCursor(90, 48);
+    display.print("No");
+
+    if (tabNum == 0)
+    {
+      display.drawRect(16, 46, 32, 12, 1);
+    }
+    else if (tabNum == 1)
+    {
+      display.drawRect(80, 46, 32, 12, 1);
+    }
+  } //Options;
+  else if (screenNum == 5)
+  {
+    char items[2][11] = {"Def.Pst ", "Panic"};
+    
+    display.setTextColor(WHITE);
+    display.setTextSize(2);
+
+    display.setCursor(3,11);
+    if (lineNum > 0)
+    {
+      display.print(items[lineNum - 1]);
+      //reading value for Default Preset;
+      if (lineNum == 1)
+      {
+        if (EEPROM.read(1) < 10)
+          display.print(" ");
+        display.print(EEPROM.read(1));
+      }
+    }
+
+    display.setCursor(3,29);
+    display.print(items[lineNum]);
+    //reading value for Default Preset;
+    if (lineNum == 0)
+    {
+      display.setTextColor(BLACK, WHITE);
+      if (EEPROM.read(1) < 10)
+          display.print(" ");
+      display.print(EEPROM.read(1));
+      display.setTextColor(WHITE);
+    }
+
+    display.setCursor(3,48);
+    if (lineNum < lineMax - 1)
+    {
+      display.print(items[lineNum + 1]);
+    }
+
+    drawHeader();
+    drawFrame();
+    drawScrollbar();
   }
 
   display.display();
@@ -280,7 +877,7 @@ void setup() {
 
     for (int i = 2; i < maxProfile; i++)
     {
-      // saveProfile(i);
+      saveProfile(i);
     }
 
     strcpy(currentProfile.nameline1, "Default");
@@ -288,27 +885,20 @@ void setup() {
     currentProfile.layers[0].isActive = 1;
 
     currentProfileNumber = 1;
-    // setDefaultProfile(currentProfileNumber);
+    setDefaultProfile(currentProfileNumber);
 
-    // saveProfile(1);
+    saveProfile(1);
 
-    // EEPROM.update(0 , profileversion);
-
-    Serial.println("Rewriting the profiles to EEPROM");
+    EEPROM.update(0 , profileversion);
   } 
   else
   {
-      // loadProfile(EEPROM.read(1));
-
-      Serial.println("Profiles loaded");
+    loadProfile(EEPROM.read(1));
   }
 
-  strcpy(currentProfile.nameline1, "Tornado of");
-  strcpy(currentProfile.nameline2, "Souls");
   display.begin(SH1106_SWITCHCAPVCC, 0x3C);
   display.clearDisplay();
-  Serial.println(currentProfile.nameline1);
-  Serial.println(currentProfile.nameline2);
+
   display.drawBitmap(20, 0,  logo_bitmap, 88, 64, 1);
   display.setTextSize(1);
   display.setTextColor(WHITE);
@@ -320,35 +910,41 @@ void setup() {
   screenNum = 0;
   tabNum = 0;
   lineNum = 0;
-  lineTotal = 1;
+  lineMax = 1;
+  tabMax = 1;
 
   redrawDisplay();
 
   delay(3000);
 
-  display.clearDisplay();
-  drawFrame();
-  lineTotal = 1;
-  lineNum = 0;
-  drawScrollbar();
-  display.display();
-  delay(3000);
-
-  display.clearDisplay();
-  drawFrame();
-  lineTotal = 5;
-  lineNum = 1;
-  drawScrollbar();
-  display.display();
-  delay(3000);
-
-  display.clearDisplay();
-  drawFrame();
-  lineTotal = 16;
-  lineNum = 15;
-  drawScrollbar();
-  display.display();
-  delay(3000);
+  handleButton('C');
+  delay(MYDELAY);
+  handleButton('U');
+  delay(MYDELAY);
+  handleButton('C');
+  delay(MYDELAY);
+  handleButton('D');
+  delay(MYDELAY);
+  // handleButton('C');
+  // delay(MYDELAY);
+  // handleButton('U');
+  // delay(MYDELAY);
+  // handleButton('C');
+  // delay(MYDELAY);
+  // handleButton('C');
+  // delay(MYDELAY);
+  // handleButton('R');
+  // delay(MYDELAY);
+  // handleButton('L');
+  // delay(MYDELAY);
+  // handleButton('L');
+  // delay(MYDELAY);
+  // handleButton('R');
+  // delay(MYDELAY);
+  // handleButton('R');
+  // delay(MYDELAY);
+  // handleButton('C');
+  // delay(MYDELAY);
 
 
 }
