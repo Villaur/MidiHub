@@ -144,13 +144,6 @@ Button buttonRight = Button(27);
 Button buttonCenter = Button(29);
 Button buttonBack = Button(23);
 
-/* Buttons:
-  U
-L C R
-  D    B
-*/
-
-
 void loadProfile(uint8_t profileNum)
 {
   currentProfileNumber = profileNum;
@@ -243,6 +236,8 @@ void drawHeader()
     trimmedname[10] = '\0';
   
   display.print(trimmedname);
+
+  display.drawLine(0, 9, 127, 9, 1);
 }
 
 void drawScrollbar()
@@ -350,6 +345,85 @@ void drawTabs(const char * t0, const char * t1, const char * t2, const char * t3
     display.print(" ");
 }
 
+void numToNote(uint8_t num, char* note)
+{
+  note[3] = '\0';
+  if (num < 12)
+  {
+    note[2] = '-'; 
+  }
+  else
+  {
+    note[2] = '0' + (num / 12) - 1;
+  }
+
+  if (num % 12 == 0)
+  {
+    note[0] = ' '; 
+    note[1] = 'C';
+  }
+  else if (num % 12 == 1)
+  {
+    note[0] = 'C'; 
+    note[1] = '#';
+  }
+  else if (num % 12 == 2)
+  {
+    note[0] = ' '; 
+    note[1] = 'D';
+  }
+  else if (num % 12 == 3)
+  {
+    note[0] = 'D'; 
+    note[1] = '#';
+  }
+  else if (num % 12 == 4)
+  {
+    note[0] = ' '; 
+    note[1] = 'E';
+  }
+  else if (num % 12 == 5)
+  {
+    note[0] = ' '; 
+    note[1] = 'F';
+  }
+  else if (num % 12 == 6)
+  {
+    note[0] = 'F'; 
+    note[1] = '#';
+  }
+  else if (num % 12 == 7)
+  {
+    note[0] = ' '; 
+    note[1] = 'G';
+  }
+  else if (num % 12 == 8)
+  {
+    note[0] = 'G'; 
+    note[1] = '#';
+  }
+  else if (num % 12 == 9)
+  {
+    note[0] = ' '; 
+    note[1] = 'A';
+  }
+  else if (num % 12 == 10)
+  {
+    note[0] = 'A'; 
+    note[1] = '#';
+  }
+  else if (num % 12 == 11)
+  {
+    note[0] = ' '; 
+    note[1] = 'H';
+  }
+}
+
+/* Buttons:
+  U
+L C R
+  D    B
+*/
 void handleButton(char btn)
 {
   //home screen;
@@ -417,8 +491,8 @@ void handleButton(char btn)
         screenNum = 4;
         tabNum = 0;
         lineNum = 0;
-        lineMax = 16;
-        tabMax = 4;
+        lineMax = maxLayer;
+        tabMax = 3;
       }
       else if (lineNum == 2) //Save
       {
@@ -566,8 +640,8 @@ void handleButton(char btn)
       lineMax = 1;
       tabMax = 1;
     }
-  }
-  else if (screenNum == 5)//Options
+  } //Options
+  else if (screenNum == 5)
   {
     if (btn == 'U')
     {
@@ -671,6 +745,268 @@ void handleButton(char btn)
       lineNum = 0;
       lineMax = 2;
       tabMax = 1;
+    }
+  } //Edit;
+  else if (screenNum == 4)
+  {
+    if (btn == 'U')
+    {
+      if (lineNum <= 0)
+        lineNum = lineMax - 1;
+      else
+        lineNum--;
+    }
+    else if (btn == 'D')
+    {
+      if (lineNum >= lineMax - 1)
+        lineNum = 0;
+      else
+        lineNum++;
+    }
+    else if (btn == 'L')
+    {
+      if (tabNum > 0)
+      {  
+        tabNum--;
+        lineNum = 0;
+        if (tabNum == 0)
+          lineMax = 8;
+        else if (tabNum == 1)
+          lineMax = 12;
+        else if (tabNum == 2)
+          lineMax = 2;
+      }
+    }
+    else if (btn == 'R')
+    {
+      if (tabNum < tabMax - 1)
+      {
+        tabNum++;
+        lineNum = 0;
+        if (tabNum == 0)
+          lineMax = maxLayer;
+        else if (tabNum == 1)
+          lineMax = 12;
+        else if (tabNum == 2)
+          lineMax = 2;
+      }
+    }
+    else if (btn == 'B')
+    {
+      screenNum = 1;
+      tabNum = 0;
+      lineNum = 0;
+      lineMax = 5;
+      tabMax = 1;
+    }
+    else if (btn == 'C')
+    {
+      if (tabNum == 0) //Layer settings;
+      {
+        screenNum = 200 + lineNum;
+        tabNum = 0;
+        lineNum = 0;
+        lineMax = 5;
+        tabMax = 3;
+      }
+      else if (tabNum == 1) //Pads;
+      {
+        if (lineNum == 0) // Activate;
+        {
+          currentProfile.padLayer.isActive ^= 1;
+          profileChanged = 1;
+        }
+        else if (lineNum == 1) //Channel in;
+        {
+          if (currentProfile.padLayer.chIn == 0b1111111111111111)
+            currentProfile.padLayer.chIn = 0b0000000000000001;
+          else if (currentProfile.padLayer.chIn == 0b1000000000000000)
+            currentProfile.padLayer.chIn = 0b1111111111111111;
+          else
+            currentProfile.padLayer.chIn <<= 1;
+
+          profileChanged = 1;
+        }
+        else if (lineNum == 2) //Channel out;
+        {
+          if (currentProfile.padLayer.chOut == 16)
+            currentProfile.padLayer.chIn = 0;
+          else
+            currentProfile.padLayer.chIn++;
+
+          profileChanged = 1;
+        }
+        else if (lineNum >= 3 && lineNum <= 6) // Jack in;
+        {
+          currentProfile.padLayer.midiIn ^= 0b00000001 << (lineNum - 3);
+
+          profileChanged = 1;
+        }
+        else if (lineNum >= 7 && lineNum <= 10) // Jack out;
+        {
+          currentProfile.padLayer.midiOut ^= 0b00000001 << (lineNum - 3);
+
+          profileChanged = 1;
+        }
+        else if (lineNum == 11) // Pads settings;
+        {
+          screenNum = 6;
+          tabNum = 0;
+          lineNum = 0;
+          lineMax = 3 * maxPad / 4;
+          tabMax = 4;
+        }
+      }
+      else if (tabNum == 2) //Settings;
+      {
+        screenNum = 40 + lineNum;
+        tabNum = 0;
+        lineNum = 0;
+        lineMax = 4;
+        tabMax = 10;
+      }
+    }
+  } //Layer Settings;
+  else if (screenNum >= 200 && screenNum < 200 + maxLayer)
+  {
+    uint8_t layerNum = screenNum - 200;
+    if (btn == 'U')
+    {
+      if (lineNum <= 0)
+        lineNum = lineMax - 1;
+      else
+        lineNum--;
+    }
+    else if (btn == 'D')
+    {
+      if (lineNum >= lineMax - 1)
+        lineNum = 0;
+      else
+        lineNum++;
+    }
+    else if (btn == 'L')
+    {
+      if (tabNum > 0)
+      {  
+        tabNum--;
+        if (tabNum == 0)
+        {
+          lineMax = 5;
+        }
+        else
+          lineMax = 4;
+        lineNum = 0;
+      }
+    }
+    else if (btn == 'R')
+    {
+      if (tabNum < tabMax - 1)
+      {
+        tabNum++;
+        if (tabNum == 0)
+        {
+          lineMax = 5;
+        }
+        else
+          lineMax = 4;
+        lineNum = 0;
+      }
+    }
+    else if (btn == 'B')
+    {
+      screenNum = 4;
+      lineNum = layerNum;
+      tabNum = 0;     
+      lineMax = maxLayer;
+      tabMax = 3;
+    }
+    else if (btn == 'C')
+    {
+      if (tabNum == 0) //Preferencies;
+      {
+        if (lineNum == 0) // Turn layer on/off;
+        {
+          currentProfile.layers[layerNum].isActive ^= 0b00000001;
+          profileChanged = 1;
+        }
+        if (lineNum == 3) //Channel in;
+        {
+          if (currentProfile.layers[layerNum].chIn == 0b1111111111111111)
+            currentProfile.layers[layerNum].chIn = 0b0000000000000001;
+          else if (currentProfile.layers[layerNum].chIn == 0b1000000000000000)
+            currentProfile.layers[layerNum].chIn = 0b1111111111111111;
+          else
+            currentProfile.layers[layerNum].chIn <<= 1;
+
+          profileChanged = 1;
+        }
+        else if (lineNum == 4) //Channel out;
+        {
+          if (currentProfile.layers[layerNum].chOut == 16)
+            currentProfile.layers[layerNum].chIn = 0;
+          else
+            currentProfile.layers[layerNum].chIn++;
+
+          profileChanged = 1;
+        }
+      }
+      else if (tabNum == 1) //JackIn;
+      {
+        currentProfile.layers[layerNum].midiIn ^= 0b00000001 << lineNum;
+
+        profileChanged = 1;
+      }
+      else if (tabNum == 2) //JackOut;
+      {
+        currentProfile.layers[layerNum].midiIn ^= 0b00000001 << lineNum;
+
+        profileChanged = 1;
+      }
+    }
+  } //Pads Settings;
+  else if (screenNum == 6)
+  {
+    if (btn == 'U')
+    {
+      if (lineNum <= 0)
+        lineNum = lineMax - 1;
+      else
+        lineNum--;
+    }
+    else if (btn == 'D')
+    {
+      if (lineNum >= lineMax - 1)
+        lineNum = 0;
+      else
+        lineNum++;
+    }
+    else if (btn == 'L')
+    {
+      if (tabNum > 0)
+      {  
+        tabNum--;
+        lineNum = 0;
+      }
+    }
+    else if (btn == 'R')
+    {
+      if (tabNum < tabMax - 1)
+      {
+        tabNum++;
+        lineNum = 0;
+      }
+    }
+    else if (btn == 'B')
+    {
+      screenNum = 4;
+      lineNum = 11;
+      tabNum = 1;     
+      lineMax = 12;
+      tabMax = 3;
+    }
+    else if (btn == 'C')
+    {
+      //Everything happens only when a note is pressed;
     }
   }
 
@@ -857,6 +1193,371 @@ void redrawDisplay()
     drawHeader();
     drawFrame();
     drawScrollbar();
+  } //Edit;
+  else if (screenNum == 4)
+  {
+    if (tabNum == 0) // Layers;
+    {
+
+      if (lineNum > 0)
+      {
+        display.setTextColor(WHITE);
+        display.setTextSize(2);
+        display.setCursor(3,11);
+
+        display.print("Layer"); display.print(lineNum); display.print("|"); 
+        if (currentProfile.layers[lineNum-1].isActive)
+          display.print(" ON");
+        else
+          display.print("OFF");
+      }
+
+      display.setTextColor(WHITE);
+      display.setTextSize(2);
+      display.setCursor(3,29);
+
+      display.print("Layer"); display.print(lineNum+1); display.print("|"); 
+      if (currentProfile.layers[lineNum].isActive)
+        display.print(" ON");
+      else
+        display.print("OFF");
+
+      if (lineNum < lineMax - 1)
+      {
+        display.setTextColor(WHITE);
+        display.setTextSize(2);
+        display.setCursor(3,48);
+
+        display.print("Layer"); display.print(lineNum+2); display.print("|"); 
+        if (currentProfile.layers[lineNum+1].isActive)
+          display.print(" ON");
+        else
+          display.print("OFF");
+      }
+    }
+    else if (tabNum == 1) // Pads;
+    {
+      char pads[12][11];
+      if (currentProfile.padLayer.isActive)
+        strcpy(pads[0], "Enbl.  ON ");
+      else
+        strcpy(pads[0], "Enbl.  OFF");
+
+      if (currentProfile.padLayer.chIn == 0b1111111111111111)
+        strcpy(pads[1], "ChIn  OMNI");
+      else 
+      {
+        for (uint8_t i = 0; i < 15; i++)
+        {
+          if (currentProfile.padLayer.chIn == 1 << i)
+          {
+            strcpy(pads[1], "ChIn      ");
+            if (i >= 9)
+              pads[1][7] = '1';
+            pads[1][8] = '0' + ((i+1) % 10);
+          }
+        }
+      }
+      
+      if (currentProfile.padLayer.chOut > 15)
+        strcpy(pads[2], "ChOut AsIn");
+      else 
+      {
+        strcpy(pads[2], "ChOut     ");
+        if (currentProfile.padLayer.chOut >= 9)
+          pads[2][7] = '1';
+        pads[2][8] = '0' + ((currentProfile.padLayer.chOut+1) % 10);
+      }
+
+      if (currentProfile.padLayer.midiIn & 0b00000001)
+        strcpy(pads[3], "In1    ON ");
+      else
+        strcpy(pads[3], "In1    OFF");
+
+      if (currentProfile.padLayer.midiIn & 0b00000010)
+        strcpy(pads[4], "In2    ON ");
+      else
+        strcpy(pads[4], "In2    OFF");
+
+      if (currentProfile.padLayer.midiIn & 0b00000100)
+        strcpy(pads[5], "In3    ON ");
+      else
+        strcpy(pads[5], "In3    OFF");
+
+      if (currentProfile.padLayer.midiIn & 0b00001000)
+        strcpy(pads[6], "In4    ON ");
+      else
+        strcpy(pads[6], "In4    OFF");
+
+      if (currentProfile.padLayer.midiIn & 0b00000001)
+        strcpy(pads[7], "Out1   ON ");
+      else
+        strcpy(pads[7], "Out1   OFF");
+
+      if (currentProfile.padLayer.midiIn & 0b00000010)
+        strcpy(pads[8], "Out2   ON ");
+      else
+        strcpy(pads[8], "Out2   OFF");
+
+      if (currentProfile.padLayer.midiIn & 0b00000100)
+        strcpy(pads[9], "Out3   ON ");
+      else
+        strcpy(pads[9], "Out3   OFF");
+
+      if (currentProfile.padLayer.midiIn & 0b00001000)
+        strcpy(pads[10], "Out4   ON ");
+      else
+        strcpy(pads[10], "Out4   OFF");
+
+      strcpy(pads[11], "Setup");
+
+      if (lineNum > 0)
+      {
+        display.setTextColor(WHITE);
+        display.setTextSize(2);
+        display.setCursor(3,11);
+        display.print(pads[lineNum-1]);
+      }
+      if (lineNum < lineMax - 1)
+      {
+        display.setTextColor(WHITE);
+        display.setTextSize(2);
+        display.setCursor(3,48);
+        display.print(pads[lineNum+1]);
+      }
+
+      display.setTextColor(WHITE);
+      display.setTextSize(2);
+      display.setCursor(3,29);
+
+      char firstpart[7];
+      for (uint8_t i = 0; i < 6; i++)
+        firstpart[i] = pads[lineNum][i];
+      firstpart[6] = '\0';
+      display.print(firstpart);
+
+      if (lineNum < lineMax - 1)
+        display.setTextColor(BLACK, WHITE);
+      display.print(pads[lineNum]+6);
+    }
+    else if (tabNum == 2) // Preferencies;
+    {
+      char lines[2][11] = {"Name line1", "Name line2"};
+      if (lineNum > 0)
+      {
+        display.setTextColor(WHITE);
+        display.setTextSize(2);
+        display.setCursor(3,11);
+        display.print(lines[lineNum-1]);
+      }
+      if (lineNum < lineMax - 1)
+      {
+        display.setTextColor(WHITE);
+        display.setTextSize(2);
+        display.setCursor(3,48);
+        display.print(lines[lineNum+1]);
+      }
+      display.setTextColor(WHITE);
+      display.setTextSize(2);
+      display.setCursor(3,29);
+      display.print(lines[lineNum]);
+    }
+
+    drawTabs("Layer", "Pads", "Pref.", "");
+    drawScrollbar();
+    drawFrame();
+  } //Layer Settings;
+  else if (screenNum >= 200 && screenNum < 200 + maxLayer)
+  {
+    uint8_t layerNum = screenNum - 200;
+    char note[4];
+    char items[5][11];
+    
+    if (tabNum == 0) //Preferencies;
+    {
+      strcpy(items[1], "Lower  ");
+      strcpy(items[2], "Upper  ");
+
+      if (currentProfile.layers[layerNum].isActive)
+        strcpy(items[0], "Enbl.  ON ");
+      else
+        strcpy(items[0], "Enbl.  OFF");
+
+      numToNote(currentProfile.layers[layerNum].noteLow,note);
+      strcat(items[1], note);
+      numToNote(currentProfile.layers[layerNum].noteHigh,note);
+      strcat(items[2], note);
+
+      if (currentProfile.layers[layerNum].chIn == 0b1111111111111111)
+        strcpy(items[3], "ChIn  OMNI");
+      else 
+      {
+        for (uint8_t i = 0; i < 15; i++)
+        {
+          if (currentProfile.layers[layerNum].chIn == 1 << i)
+          {
+            strcpy(items[3], "ChIn      ");
+            if (i >= 9)
+              items[3][7] = '1';
+            items[3][8] = '0' + ((i+1) % 10);
+          }
+        }
+      }
+      
+      if (currentProfile.layers[layerNum].chOut > 15)
+        strcpy(items[4], "ChOut AsIn");
+      else 
+      {
+        strcpy(items[4], "ChOut     ");
+        if (currentProfile.layers[layerNum].chOut >= 9)
+          items[4][7] = '1';
+        items[4][8] = '0' + ((currentProfile.layers[layerNum].chOut+1) % 10);
+      }
+    }
+    else if (tabNum == 1) //midiIn;
+    {
+      if (currentProfile.layers[layerNum].midiIn & 0b00000001)
+        strcpy(items[0], "In1    ON ");
+      else
+        strcpy(items[0], "In1    OFF");
+
+      if (currentProfile.layers[layerNum].midiIn & 0b00000010)
+        strcpy(items[1], "In2    ON ");
+      else
+        strcpy(items[1], "In2    OFF");
+
+      if (currentProfile.layers[layerNum].midiIn & 0b00000100)
+        strcpy(items[2], "In3    ON ");
+      else
+        strcpy(items[2], "In3    OFF");
+
+      if (currentProfile.layers[layerNum].midiIn & 0b00001000)
+        strcpy(items[3], "In4    ON ");
+      else
+        strcpy(items[3], "In4    OFF");
+    }
+    else if (tabNum == 2) //midiOut;
+    {
+      if (currentProfile.layers[layerNum].midiIn & 0b00000001)
+        strcpy(items[0], "Out1   ON ");
+      else
+        strcpy(items[0], "Out1   OFF");
+
+      if (currentProfile.layers[layerNum].midiIn & 0b00000010)
+        strcpy(items[1], "Out2   ON ");
+      else
+        strcpy(items[1], "Out2   OFF");
+
+      if (currentProfile.layers[layerNum].midiIn & 0b00000100)
+        strcpy(items[2], "Out3   ON ");
+      else
+        strcpy(items[2], "Out3   OFF");
+
+      if (currentProfile.layers[layerNum].midiIn & 0b00001000)
+        strcpy(items[3], "Out4   ON ");
+      else
+        strcpy(items[3], "Out4   OFF");
+    }
+
+    if (lineNum > 0)
+    {
+      display.setTextColor(WHITE);
+      display.setTextSize(2);
+      display.setCursor(3,11);
+      display.print(items[lineNum-1]);
+    }
+    if (lineNum < lineMax - 1)
+    {
+      display.setTextColor(WHITE);
+      display.setTextSize(2);
+      display.setCursor(3,48);
+      display.print(items[lineNum+1]);
+    }
+
+    display.setTextColor(WHITE);
+    display.setTextSize(2);
+    display.setCursor(3,29);
+    
+    char firstpart[7];
+    for (uint8_t i = 0; i < 6; i++)
+      firstpart[i] = items[lineNum][i];
+    firstpart[6] = '\0';
+    display.print(firstpart);
+
+    display.setTextColor(BLACK, WHITE);
+    display.print(items[lineNum]+6);
+
+    drawTabs("Pref.", "JackI", "JackO","");
+    drawScrollbar();
+    drawFrame();
+  } //Pads Settings;
+  else if (screenNum == 6)
+  {
+    char note[4];
+    char items[maxPad / 4 * 3][11];
+    
+    for (uint8_t padNum = (maxPad / 4) * tabNum; padNum < (maxPad / 4) * (tabNum + 1); padNum++)
+    {
+      uint8_t padLine = padNum - (maxPad / 4) * tabNum;
+      strcpy(items[3 * padLine], "Pad ");
+      items[3 * padLine][3] = '1' + padNum;
+      strcpy(items[3 * padLine + 1], items[3 * padLine]);
+      strcpy(items[3 * padLine + 2], items[3 * padLine]);
+      strcat(items[3 * padLine], "   ");
+      strcat(items[3 * padLine + 1], "_2 ");
+      strcat(items[3 * padLine + 2], "_3 ");
+
+      numToNote(currentProfile.padLayer.specificNotes[padNum][0], note);
+      strcat(items[3 * padLine], note);
+
+      if (currentProfile.padLayer.specificNotes[padNum][0] >> 4 == 0 || currentProfile.padLayer.specificNotes[padNum][0] + (currentProfile.padLayer.specificNotes[padNum][1] >> 4) > 127)
+        strcat(items[3 * padLine + 1], "OFF");
+      else
+      {
+        numToNote(currentProfile.padLayer.specificNotes[padNum][0] + (currentProfile.padLayer.specificNotes[padNum][1] >> 4), note);
+        strcat(items[3 * padLine + 1], note);
+      }
+
+      if ((currentProfile.padLayer.specificNotes[padNum][0] & 0b00001111) == 0 || currentProfile.padLayer.specificNotes[padNum][0] + (currentProfile.padLayer.specificNotes[padNum][1] & 0b00001111) > 127)
+        strcat(items[3 * padLine + 2], "OFF");
+      else
+      {
+        numToNote(currentProfile.padLayer.specificNotes[padNum][0] + (currentProfile.padLayer.specificNotes[padNum][1] & 0b00001111), note);
+        strcat(items[3 * padLine + 2], note);
+      }
+    }
+
+    if (lineNum > 0)
+    {
+      display.setTextColor(WHITE);
+      display.setTextSize(2);
+      display.setCursor(3,11);
+      display.print(items[lineNum-1]);
+    }
+    if (lineNum < lineMax - 1)
+    {
+      display.setTextColor(WHITE);
+      display.setTextSize(2);
+      display.setCursor(3,48);
+      display.print(items[lineNum+1]);
+    }
+
+    display.setTextColor(WHITE);
+    display.setTextSize(2);
+    display.setCursor(3,29);
+    
+    char firstpart[7];
+    for (uint8_t i = 0; i < 6; i++)
+      firstpart[i] = items[lineNum][i];
+    firstpart[6] = '\0';
+    display.print(firstpart);
+
+    display.setTextColor(BLACK, WHITE);
+    display.print(items[lineNum]+6);
+
+    drawTabs("1-2", "3-4", "5-6", "7-8");
+    drawScrollbar();
+    drawFrame();
   }
 
   display.display();
@@ -919,34 +1620,23 @@ void setup() {
 
   handleButton('C');
   delay(MYDELAY);
+  handleButton('D');
+  delay(MYDELAY);
+  handleButton('C');
+  delay(MYDELAY);
+  handleButton('R');
+  delay(MYDELAY);
   handleButton('U');
   delay(MYDELAY);
   handleButton('C');
   delay(MYDELAY);
   handleButton('D');
   delay(MYDELAY);
-  // handleButton('C');
-  // delay(MYDELAY);
-  // handleButton('U');
-  // delay(MYDELAY);
-  // handleButton('C');
-  // delay(MYDELAY);
-  // handleButton('C');
-  // delay(MYDELAY);
-  // handleButton('R');
-  // delay(MYDELAY);
-  // handleButton('L');
-  // delay(MYDELAY);
-  // handleButton('L');
-  // delay(MYDELAY);
-  // handleButton('R');
-  // delay(MYDELAY);
-  // handleButton('R');
-  // delay(MYDELAY);
-  // handleButton('C');
-  // delay(MYDELAY);
-
-
+  handleButton('R');
+  delay(MYDELAY);
+  handleButton('D');
+  delay(MYDELAY);
+  
 }
 
 void loop() {
@@ -1021,39 +1711,47 @@ void loop() {
 
             if (currentProfile.padLayer.specificNotes[padNum][1] & 0b11110000> 0)
             {
-              uint8_t newnote = currentProfile.padLayer.specificNotes[padNum][0] + currentProfile.padLayer.specificNotes[padNum][1] >> 4;
-              for (uint8_t midiOutNum = 0; midiOutNum < 4; midiOutNum++)
+              uint8_t newnote = currentProfile.padLayer.specificNotes[padNum][0] + (currentProfile.padLayer.specificNotes[padNum][1] >> 4);
+              if (newnote < 128)
               {
-                if (currentProfile.padLayer.midiOut & (1 << midiOutNum))
+                for (uint8_t midiOutNum = 0; midiOutNum < 4; midiOutNum++)
                 {
-                  //serials[midiOutNum]->write(newcommand);
-                  //serials[midiOutNum]->write(newnote);
-                  //serials[midiOutNum]->write(bytes[2]);
-                  if (midiOutNum == 0)
-                  {Serial.println(newcommand);
-                  Serial.println(newnote);
-                  Serial.println(bytes[2]);}
+                  if (currentProfile.padLayer.midiOut & (1 << midiOutNum))
+                  {
+                    //serials[midiOutNum]->write(newcommand);
+                    //serials[midiOutNum]->write(newnote);
+                    //serials[midiOutNum]->write(bytes[2]);
+                    if (midiOutNum == 0)
+                    {Serial.println(newcommand);
+                    Serial.println(newnote);
+                    Serial.println(bytes[2]);}
+                  }
                 }
               }
             }
 
-            if (currentProfile.padLayer.specificNotes[padNum][1] & 0b00001111> 0)
+            if ((currentProfile.padLayer.specificNotes[padNum][1] & 0b00001111) > 0)
             {
-              uint8_t newnote = currentProfile.padLayer.specificNotes[padNum][0] + currentProfile.padLayer.specificNotes[padNum][1];
-              for (uint8_t midiOutNum = 0; midiOutNum < 4; midiOutNum++)
+              uint8_t newnote = currentProfile.padLayer.specificNotes[padNum][0] + (currentProfile.padLayer.specificNotes[padNum][1] & 0b00001111);
+              if (newnote < 128)
               {
-                if (currentProfile.padLayer.midiOut & (1 << midiOutNum))
+                for (uint8_t midiOutNum = 0; midiOutNum < 4; midiOutNum++)
                 {
-                  //serials[midiOutNum]->write(newcommand);
-                  //serials[midiOutNum]->write(newnote);
-                  //serials[midiOutNum]->write(bytes[2]);
-                  if (midiOutNum == 0)
-                  {Serial.println(newcommand);
-                  Serial.println(newnote);
-                  Serial.println(bytes[2]);}
+                  if (currentProfile.padLayer.midiOut & (1 << midiOutNum))
+                  {
+                    //serials[midiOutNum]->write(newcommand);
+                    //serials[midiOutNum]->write(newnote);
+                    //serials[midiOutNum]->write(bytes[2]);
+                    if (midiOutNum == 0)
+                    {Serial.println(newcommand);
+                    Serial.println(newnote);
+                    Serial.println(bytes[2]);}
+                  }
                 }
               }
             }
+
+            //Keys in Options here;
           }
         }
       }
