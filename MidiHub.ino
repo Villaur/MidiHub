@@ -10,7 +10,7 @@
 #define maxPadNote 43 //35+maxPad;
 
 #define rewriteMemory 0 //set it to 1 if you want to force the program to rewrite all profiles in EEPROM to default on startup;
-#define softwareVersion 0.4 //increase the integer part each time the Profile structure changes;
+#define softwareVersion 0.9 //increase the integer part each time the Profile structure changes;
 
 #define MYDELAY 3000
 
@@ -63,10 +63,22 @@ const unsigned char logo_bitmap [] PROGMEM = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
+const unsigned char keyboard [] PROGMEM = {
+  '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 131,
+  'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\\',
+  'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', ' ',
+  128, 'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 129, 130,
+
+  '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', 131,
+  'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '|',
+  'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '\"', '~', ' ',
+  128, 'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?', 129, 130
+};
 
 struct Layer
 {
   uint8_t isActive = 0;
+  int8_t transpose = 0;
   uint16_t chIn = 0b1111111111111111; //i-th bit indicates the i-th channel;
   uint16_t chOut = 16; //0-15 to assign a channel, 16 to keep the original hannel;
   uint8_t noteLow  = 0;
@@ -419,6 +431,101 @@ void numToNote(uint8_t num, char* note)
   }
 }
 
+void intToStr(int8_t num, char* str)
+{
+  str[3] = '\0';
+  if (num < 0)
+  {
+    str[0] = '-';
+    num *= -1;
+  }
+  else if (num > 0)
+  {
+    str[0] = '+';
+  }
+  else
+  {
+    str[0] = ' ';
+  }
+
+  if (num < 10)
+  {
+    str[1] = ' ';
+  }
+  else
+  {
+    str[1] = '0' + num / 10;
+  }
+
+  str[2] = '0' + num % 10;
+}
+
+void drawKeyboard()
+{
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+
+  for (uint8_t i = 0; i < 13; i++)
+  {
+    for (uint8_t j = 0; j < 4; j++)
+    {
+      unsigned char thechar = pgm_read_byte_near(keyboard + 13 * (j + (tabNum >= tabMax ? lineMax : 0)) + i);
+      if (thechar == 131) //backspace;
+      {
+        display.drawLine(9*i + 6, 11*j + 23, 9*i + 9, 11*j + 20, WHITE);
+        display.drawLine(9*i + 9, 11*j + 20, 9*i + 13, 11*j + 20, WHITE);
+        display.drawLine(9*i + 13, 11*j + 20, 9*i + 13, 11*j + 26, WHITE);
+        display.drawLine(9*i + 6, 11*j + 23, 9*i + 9, 11*j + 26, WHITE);
+        display.drawLine(9*i + 9, 11*j + 26, 9*i + 13, 11*j + 26, WHITE);
+      }
+      else if (thechar == 128) //shift;
+      {
+        display.drawLine(9*i + 6, 11*j + 23, 9*i + 7, 11*j + 23, WHITE);
+        display.drawLine(9*i + 12, 11*j + 23, 9*i + 13, 11*j + 23, WHITE);
+        display.drawLine(9*i + 7, 11*j + 22, 9*i + 9, 11*j + 20, WHITE);
+        display.drawLine(9*i + 10, 11*j + 20, 9*i + 12, 11*j + 22, WHITE);
+        display.drawLine(9*i + 8, 11*j + 24, 9*i + 8, 11*j + 26, WHITE);
+        display.drawLine(9*i + 11, 11*j + 24, 9*i + 11, 11*j + 26, WHITE);
+        display.drawLine(9*i + 9, 11*j + 26, 9*i + 10, 11*j + 26, WHITE);
+        if (tabNum >= tabMax)
+        {
+          display.drawLine(9*i + 8, 11*j + 22, 9*i + 8, 11*j + 23, WHITE);
+          display.drawLine(9*i + 9, 11*j + 21, 9*i + 9, 11*j + 25, WHITE);
+          display.drawLine(9*i + 10, 11*j + 21, 9*i + 10, 11*j + 25, WHITE);
+          display.drawLine(9*i + 11, 11*j + 22, 9*i + 11, 11*j + 23, WHITE);
+        }
+      }
+      else if (thechar == 129) //left arrow;
+      {
+        display.drawRect(9*i + 7, 11*j + 23, 6, 2, WHITE);
+        display.drawLine(9*i + 8, 11*j + 22, 9*i + 8, 11*j + 25, WHITE);
+        display.drawLine(9*i + 9, 11*j + 21, 9*i + 9, 11*j + 26, WHITE);
+        display.drawLine(9*i + 10, 11*j + 20, 9*i + 10, 11*j + 27, WHITE);
+      }
+      else if (thechar == 130) //right arrow;
+      {
+        display.drawRect(9*i + 7, 11*j + 23, 6, 2, WHITE);
+        display.drawLine(9*i + 9, 11*j + 20, 9*i + 9, 11*j + 27, WHITE);
+        display.drawLine(9*i + 10, 11*j + 21, 9*i + 10, 11*j + 26, WHITE);
+        display.drawLine(9*i + 11, 11*j + 22, 9*i + 11, 11*j + 25, WHITE);
+      }
+      else if (thechar == ' ') //space;
+      {
+        display.drawLine(9*i + 7, 11*j + 25, 9*i + 7, 11*j + 27, WHITE);
+        display.drawLine(9*i + 12, 11*j + 25, 9*i + 12, 11*j + 27, WHITE);
+        display.drawLine(9*i + 8, 11*j + 27, 9*i + 11, 11*j + 27, WHITE);
+      }
+      else //regular character;
+      {
+        display.setCursor(9*i + 7, 11*j + 20);
+        char printchar[2] = {thechar, '\0'};
+        display.print(printchar);
+      }
+    }
+  }
+  display.drawRect(9*(tabNum % 13) + 5, 11*(lineNum % 10) + 18, 10, 12, WHITE);
+}
+
 /* Buttons:
   U
 L C R
@@ -553,7 +660,7 @@ void handleButton(char btn)
     {
       screenNum = 1;
       tabNum = 0;
-      lineNum = 0;
+      lineNum = 1;
       lineMax = 5;
       tabMax = 1;
     }
@@ -598,7 +705,7 @@ void handleButton(char btn)
     {
       screenNum = 1;
       tabNum = 0;
-      lineNum = 0;
+      lineNum = 3;
       lineMax = 5;
       tabMax = 1;
     }
@@ -671,7 +778,7 @@ void handleButton(char btn)
     {
       screenNum = 1;
       tabNum = 0;
-      lineNum = 0;
+      lineNum = 4;
       lineMax = 5;
       tabMax = 1;
     }
@@ -795,7 +902,7 @@ void handleButton(char btn)
     {
       screenNum = 1;
       tabNum = 0;
-      lineNum = 0;
+      lineNum = 1;
       lineMax = 5;
       tabMax = 1;
     }
@@ -806,7 +913,7 @@ void handleButton(char btn)
         screenNum = 200 + lineNum;
         tabNum = 0;
         lineNum = 0;
-        lineMax = 5;
+        lineMax = 6;
         tabMax = 3;
       }
       else if (tabNum == 1) //Pads;
@@ -863,7 +970,7 @@ void handleButton(char btn)
         tabNum = 0;
         lineNum = 0;
         lineMax = 4;
-        tabMax = 10;
+        tabMax = 13;
       }
     }
   } //Layer Settings;
@@ -891,7 +998,7 @@ void handleButton(char btn)
         tabNum--;
         if (tabNum == 0)
         {
-          lineMax = 5;
+          lineMax = 6;
         }
         else
           lineMax = 4;
@@ -905,7 +1012,7 @@ void handleButton(char btn)
         tabNum++;
         if (tabNum == 0)
         {
-          lineMax = 5;
+          lineMax = 6;
         }
         else
           lineMax = 4;
@@ -1007,6 +1114,94 @@ void handleButton(char btn)
     else if (btn == 'C')
     {
       //Everything happens only when a note is pressed;
+    }
+  } //Rename Profile;
+  else if (screenNum == 40 || screenNum == 41)
+  {
+    if (btn == 'U')
+    {
+      if (lineNum % 10 > 0)
+        lineNum--;
+    }
+    else if (btn == 'D')
+    {
+      if (lineNum % 10 < lineMax - 1)
+        lineNum++;
+    }
+    else if (btn == 'L')
+    {
+      if (tabNum > 0 && tabNum < tabMax || tabNum > tabMax && tabNum < 2 * tabMax)
+        tabNum--;
+    }
+    else if (btn == 'R')
+    {
+      if (tabNum < tabMax - 1 || tabNum >= tabMax && tabNum < 2 * tabMax - 1)
+        tabNum++;
+    }
+    else if (btn == 'B')
+    {
+      for (uint8_t i = nameLength - 2; i >= 0; i--)
+      {
+        if (currentProfile.nameline1[i] != ' ')
+        {
+          currentProfile.nameline1[i+1] = '\0';
+          break;
+        }
+      }
+      for (uint8_t i = nameLength - 2; i >= 0; i--)
+      {
+        if (currentProfile.nameline2[i] != ' ')
+        {
+          currentProfile.nameline2[i+1] = '\0';
+          break;
+        }
+      }
+
+      lineNum = screenNum - 40;
+      screenNum = 4;
+      tabNum = 2;     
+      lineMax = 2;
+      tabMax = 3;
+    }
+    else if (btn == 'C')
+    {
+      unsigned char charpressed = pgm_read_byte_near(keyboard + tabMax * (lineNum % 10 + (tabNum >= tabMax ? lineMax : 0)) + tabNum % tabMax);
+      Serial.println(charpressed);
+      Serial.println(tabMax * (lineNum % 10 + (tabNum >= tabMax ? lineMax : 0)) + tabNum);
+      Serial.println(tabMax);
+      Serial.println(lineNum);
+      Serial.println(tabNum);
+      char* lines[2] = {currentProfile.nameline1, currentProfile.nameline2};
+      if (charpressed == 131) //backspace;
+      {
+        lines[screenNum - 40][lineNum / 10] = ' ';
+        if (lineNum > 9) {lineNum -= 10;}
+        profileChanged = 1;
+      }
+      else if (charpressed == 128) //shift;
+      {
+        if (tabNum < tabMax)
+          tabNum += tabMax;
+        else
+          tabNum -= tabMax;
+      }
+      else if (charpressed == 129) //left arrow;
+      {
+        if (lineNum > 9) {lineNum -= 10;}
+      }
+      else if (charpressed == 130) //right arrow;
+      {
+        if (lineNum < 90) {lineNum += 10;}
+      }
+      else //regular character;
+      {
+        lines[screenNum - 40][lineNum / 10] = charpressed;
+        if (lineNum < 90) {lineNum += 10;}
+        if (tabNum >= tabMax)
+          tabNum -= tabMax;
+
+        profileChanged = 1;
+      }
     }
   }
 
@@ -1371,7 +1566,7 @@ void redrawDisplay()
   {
     uint8_t layerNum = screenNum - 200;
     char note[4];
-    char items[5][11];
+    char items[6][11];
     
     if (tabNum == 0) //Preferencies;
     {
@@ -1413,6 +1608,10 @@ void redrawDisplay()
           items[4][7] = '1';
         items[4][8] = '0' + ((currentProfile.layers[layerNum].chOut+1) % 10);
       }
+
+      strcpy(items[5], "Trans  ");
+      intToStr(currentProfile.layers[layerNum].transpose, note);
+      strcat(items[5], note);
     }
     else if (tabNum == 1) //midiIn;
     {
@@ -1558,6 +1757,37 @@ void redrawDisplay()
     drawTabs("1-2", "3-4", "5-6", "7-8");
     drawScrollbar();
     drawFrame();
+  } // rename preset;
+  else if (screenNum == 40 || screenNum == 41)
+  {
+    display.setTextSize(2);
+    display.setTextColor(WHITE);
+    display.setCursor(4, 0);
+    char toprint[11];
+
+    if (screenNum == 40)
+      strcpy(toprint, currentProfile.nameline1);
+    else if (screenNum == 41)
+      strcpy(toprint, currentProfile.nameline2);
+    toprint[lineNum / 10] = '\0';
+    display.print(toprint);
+
+    if (screenNum == 40)
+      strcpy(toprint, currentProfile.nameline1);
+    else if (screenNum == 41)
+      strcpy(toprint, currentProfile.nameline2);
+    toprint[lineNum / 10 + 1] = '\0';
+    display.setTextColor(BLACK, WHITE);
+    display.print(toprint + lineNum / 10);
+
+    if (screenNum == 40)
+      strcpy(toprint, currentProfile.nameline1);
+    else if (screenNum == 41)
+      strcpy(toprint, currentProfile.nameline2);
+    display.setTextColor(WHITE);
+    display.print(toprint + lineNum / 10 + 1);
+
+    drawKeyboard();
   }
 
   display.display();
@@ -1617,7 +1847,6 @@ void setup() {
   redrawDisplay();
 
   delay(3000);
-
   handleButton('C');
   delay(MYDELAY);
   handleButton('D');
@@ -1626,7 +1855,19 @@ void setup() {
   delay(MYDELAY);
   handleButton('R');
   delay(MYDELAY);
-  handleButton('U');
+  handleButton('R');
+  delay(MYDELAY);
+  handleButton('D');
+  delay(MYDELAY);
+  handleButton('C');
+  delay(MYDELAY);
+  handleButton('D');
+  delay(MYDELAY);
+  handleButton('D');
+  delay(MYDELAY);
+  handleButton('C');
+  delay(MYDELAY);
+  handleButton('D');
   delay(MYDELAY);
   handleButton('C');
   delay(MYDELAY);
@@ -1634,8 +1875,20 @@ void setup() {
   delay(MYDELAY);
   handleButton('R');
   delay(MYDELAY);
-  handleButton('D');
+  handleButton('C');
   delay(MYDELAY);
+  handleButton('B');
+  delay(MYDELAY);
+  handleButton('B');
+  delay(MYDELAY);
+  handleButton('B');
+  delay(MYDELAY);
+  // handleButton('D');
+  // delay(MYDELAY);
+  // handleButton('R');
+  // delay(MYDELAY);
+  // handleButton('D');
+  // delay(MYDELAY);
   
 }
 
@@ -1659,24 +1912,30 @@ void loop() {
       {
          if (currentProfile.layers[layerNum].isActive && (currentProfile.layers[layerNum].midiIn & (1 << serialNum)) && (currentProfile.layers[layerNum].chIn & (1 << channel)))
          {
-          if (code != 0b10000000 && code != 0b10010000 || bytes[1] >= currentProfile.layers[layerNum].noteLow && bytes[1] <= currentProfile.layers[layerNum].noteHigh)
+          if ((code != 0b10000000 && code != 0b10010000) || 
+              (bytes[1] >= currentProfile.layers[layerNum].noteLow && bytes[1] <= currentProfile.layers[layerNum].noteHigh 
+              && bytes[1] + currentProfile.layers[layerNum].transpose >= 0 && bytes[1] + currentProfile.layers[layerNum].transpose < 128))
           {
             uint8_t newcommand = bytes[0];
+            uint8_t newnote = bytes[1];
             if (currentProfile.layers[layerNum].chOut < 16)
             {
               newcommand = code | currentProfile.layers[layerNum].chOut;
             }
-
+            if (code == 0b10000000 && code == 0b10010000)
+            {
+              newnote += currentProfile.layers[layerNum].transpose;
+            }
             for (uint8_t midiOutNum = 0; midiOutNum < 4; midiOutNum++)
             {
               if (currentProfile.layers[layerNum].midiOut & (1 << midiOutNum))
               {
                 //serials[midiOutNum]->write(newcommand);
-                //serials[midiOutNum]->write(bytes[1]);
+                //serials[midiOutNum]->write(newnote);
                 //serials[midiOutNum]->write(bytes[2]);
                 if (midiOutNum == 0)
                  {Serial.println(newcommand);
-                 Serial.println(bytes[1]);
+                 Serial.println(newnote);
                  Serial.println(bytes[2]);}
               }
             }
@@ -1700,7 +1959,7 @@ void loop() {
               if (currentProfile.padLayer.midiOut & (1 << midiOutNum))
               {
                 //serials[midiOutNum]->write(newcommand);
-                //serials[midiOutNum]->write(bytes[1]);
+                //serials[midiOutNum]->write(currentProfile.padLayer.specificNotes[padNum][0]);
                 //serials[midiOutNum]->write(bytes[2]);
                 if (midiOutNum == 0)
                  {Serial.println(newcommand);
@@ -1750,8 +2009,128 @@ void loop() {
                 }
               }
             }
-
-            //Keys in Options here;
+            // Processing setting that requires key press;
+            if (screenNum > 0)
+            {
+              if (code == 0b10010000)
+              {
+                if (screenNum == 4 && tabNum == 1) //Edit->Pads;
+                {
+                  if (lineNum == 1) //Channel In;
+                  {
+                    if (bytes[1] < 24 || bytes[1] > 39)
+                    {
+                      currentProfile.padLayer.chIn = 0b1111111111111111;
+                      profileChanged = 1;
+                    }
+                    else
+                    {
+                      currentProfile.padLayer.chIn = 0b0000000000000001 << (bytes[1] - 24);
+                      profileChanged = 1;
+                    }
+                  }
+                  else if (lineNum == 2) //Channel Out;
+                  {
+                    if (bytes[1] < 24 || bytes[1] > 39)
+                    {
+                      currentProfile.padLayer.chOut = 16;
+                      profileChanged = 1;
+                    }
+                    else
+                    {
+                      currentProfile.padLayer.chOut = bytes[1] - 24;
+                      profileChanged = 1;
+                    }
+                  }
+                }
+                else if (screenNum >= 200 && screenNum < 200 + maxLayer && tabNum == 0) //Layer Settings;
+                {
+                  uint8_t layerNum = screenNum - 200;
+                  if (lineNum == 3) //Channel In;
+                  {
+                    if (bytes[1] < 24 || bytes[1] > 39)
+                    {
+                      currentProfile.layers[layerNum].chIn = 0b1111111111111111;
+                      profileChanged = 1;
+                    }
+                    else
+                    {
+                      currentProfile.layers[layerNum].chIn = 0b0000000000000001 << (bytes[1] - 24);
+                      profileChanged = 1;
+                    }
+                  }
+                  else if (lineNum == 4) //Channel Out;
+                  {
+                    if (bytes[1] < 24 || bytes[1] > 39)
+                    {
+                      currentProfile.layers[layerNum].chOut = 16;
+                      profileChanged = 1;
+                    }
+                    else
+                    {
+                      currentProfile.layers[layerNum].chOut = bytes[1] - 24;
+                      profileChanged = 1;
+                    }
+                  }
+                  else if (lineNum == 1) //Lower note;
+                  {
+                    currentProfile.layers[layerNum].noteLow = bytes[1];
+                    profileChanged = 1;
+                  }
+                  else if (lineNum == 2) //Uper note;
+                  {
+                    currentProfile.layers[layerNum].noteHigh = bytes[1];
+                    profileChanged = 1;
+                  }
+                  else if (lineNum == 5) //Transpose;
+                  {
+                    currentProfile.layers[layerNum].transpose = bytes[1] - 60;
+                    profileChanged = 1;
+                  }
+                }
+                else if (screenNum == 6) //Pads Settings;
+                {
+                  uint8_t padNum = (maxPad / 4) * tabNum + (lineNum / 3);
+                  if (lineNum % 3 == 0) //Base note;
+                  {
+                    currentProfile.padLayer.specificNotes[padNum][0] = bytes[1];
+                    profileChanged = 1;
+                  }
+                  else if (lineNum % 3 == 1) //First chord note;
+                  {
+                    if (bytes[1] >= currentProfile.padLayer.specificNotes[padNum][0])
+                    {
+                      if (bytes[1] - currentProfile.padLayer.specificNotes[padNum][0] < 16)
+                      {
+                        currentProfile.padLayer.specificNotes[padNum][1] &= 0b00001111;
+                        currentProfile.padLayer.specificNotes[padNum][1] |= ((bytes[1] - currentProfile.padLayer.specificNotes[padNum][0]) << 4);
+                      }
+                      else
+                      {
+                        currentProfile.padLayer.specificNotes[padNum][1] &= 0b00001111;
+                      }
+                      profileChanged = 1;
+                    }
+                  }
+                  else if (lineNum % 3 == 2) //Second chord note;
+                  {
+                    if (bytes[1] >= currentProfile.padLayer.specificNotes[padNum][0])
+                    {
+                      if (bytes[1] - currentProfile.padLayer.specificNotes[padNum][0] < 16)
+                      {
+                        currentProfile.padLayer.specificNotes[padNum][1] &= 0b11110000;
+                        currentProfile.padLayer.specificNotes[padNum][1] |= bytes[1] - currentProfile.padLayer.specificNotes[padNum][0];
+                      }
+                      else
+                      {
+                        currentProfile.padLayer.specificNotes[padNum][1] &= 0b11110000;
+                      }
+                      profileChanged = 1;
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
